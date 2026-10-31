@@ -1,0 +1,95 @@
+--- a/plat_sdl.c
++++ b/plat_sdl.c
+@@ -24,6 +24,7 @@
+ #include <errno.h>
+ #include <sys/mman.h>
+ #include <sys/ioctl.h>
++#include <arpa/inet.h>
+ #include <linux/fb.h>
+ #include <sys/ipc.h>
+ #include <sys/shm.h>
+@@ -1237,6 +1238,67 @@
+ 	}
+ }
+ 
++/* ---- Optional "speaker fix": mix left and right while the speakers are in use ---
++ * The SF3500's built-in speakers play only the right channel (earphones are normal
++ * stereo), so anything only on the left is lost. A small, separate app can write
++ * /mnt/sdcard/speaker_fix.txt with one line, speaker_fix=on | auto | off:
++ *   on    mix left and right (same as "Mono output") all the time
++ *   auto  mix only while the speakers are in use: /proc/device-tree/panel/speaker-output
++ *         holds the GPIO number the firmware uses for the jack, and its level is high
++ *         with earphones in (the bank's level register is mapped read-only)
++ *   off   (or no file, or auto when the pin cannot be read) change nothing
++ * "Mono output" in the menu still works on its own and is not touched. */
++static int sf3000_fix_mode = 0;                 /* 0 off, 1 on, 2 auto */
++static volatile uint32_t *sf3000_hp_level = NULL;
++static int sf3000_hp_pin = -1;
++
++static void sf3000_speaker_fix_init(void)
++{
++	char buf[64] = "";
++	unsigned char dt[4];
++	uint32_t pin;
++	int fd;
++	void *m;
++	FILE *f = fopen("/mnt/sdcard/speaker_fix.txt", "r");
++	if (!f) return;
++	if (fread(buf, 1, sizeof(buf) - 1, f) == 0) buf[0] = 0;
++	fclose(f);
++	if (strstr(buf, "speaker_fix=on")) { sf3000_fix_mode = 1; return; }
++	if (!strstr(buf, "speaker_fix=auto")) return;
++
++	/* auto: needs the jack pin; if anything is missing, leave the sound alone */
++	fd = open("/proc/device-tree/panel/speaker-output", O_RDONLY);
++	if (fd < 0) return;
++	if (read(fd, dt, 4) != 4) { close(fd); return; }
++	close(fd);
++	memcpy(&pin, dt, 4);
++	pin = ntohl(pin);
++	if (pin > 31) return;
++	fd = open("/dev/mem", O_RDONLY | O_SYNC);
++	if (fd < 0) return;
++	m = mmap(NULL, 0x1000, PROT_READ, MAP_SHARED, fd, 0x18800000);
++	close(fd);
++	if (m == MAP_FAILED) return;
++	sf3000_hp_pin = (int)pin;
++	sf3000_hp_level = (volatile uint32_t *)((char *)m + 0x44 + 4 * 4);   /* GPIO level register */
++	sf3000_fix_mode = 2;
++}
++
++/* nonzero when left and right should be mixed; call once per audio chunk (10 ms) */
++static int sf3000_speaker_fix_now(void)
++{
++	static unsigned n = 0;
++	static int raw = 0, cur = 0;
++	if (sf3000_fix_mode == 1) return 1;
++	if (sf3000_fix_mode != 2) return 0;
++	if (n++ % 20 == 0) {                                  /* look every 200 ms */
++		int v = !((*sf3000_hp_level >> sf3000_hp_pin) & 1u);   /* low = speakers */
++		if (v == raw) cur = v;                            /* two reads must agree */
++		raw = v;
++	}
++	return cur;
++}
++
+ /* Non-blocking audio: a dedicated consumer thread owns the *blocking*
+  * sound_driver_playframe() DAC write. The emu thread only enqueues into this
+  * SPSC ring and never blocks, so audio over/underrun can never freeze the
+@@ -1296,6 +1358,7 @@
+ static void *sf3000_audio_thread_fn(void *unused)
+ {
+ 	(void)unused;
++	sf3000_speaker_fix_init();
+ 	struct audio_frame chunk[SF3000_ACHUNK];
+ 	uint64_t next_us = 0;
+ 	int primed = 0;
+@@ -1414,7 +1477,7 @@
+ 		 * driver hard-panned stereo can therefore lose whichever channel is not
+ 		 * wired to that speaker (very obvious in Mega Drive music).  Downmix with
+ 		 * 32-bit accumulation to avoid overflow, then feed mono to both lanes. */
+-		if (audio_mono) {
++		if (audio_mono || sf3000_speaker_fix_now()) {
+ 			for (int i = 0; i < SF3000_ACHUNK; i++) {
+ 				/* Arithmetic shift is cheaper than division on this MIPS target.
+ 				 * The one-bit negative rounding difference is inaudible. */
