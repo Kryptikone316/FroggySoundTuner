@@ -17,4 +17,5 @@ may leave strings out (they stay English).
    full-width brackets or colons.
 5. `python3 tools/check_lang.py` checks the file; copy it to `roms/ports/soundtuner/lang/` on the card and
    set TreeFrogUI's language to see it. No rebuild is needed.
-6. Start `_translation_note` with who reviewed the text.
+6. Start `_translation_note` with who reviewed the text. What has been checked so far, and what a reviewer is asked
+   to look at, is in [TRANSLATION-REVIEW-NOTES.md](TRANSLATION-REVIEW-NOTES.md).

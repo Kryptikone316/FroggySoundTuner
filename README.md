@@ -53,7 +53,7 @@ English, German, Spanish, French, Italian, Polish, Brazilian Portuguese, Russian
 Simplified Chinese, chosen by TreeFrogUI's `language=` setting (`/mnt/sdcard/frogui/settings.txt`). The
 text uses TreeFrogUI's own fonts, with `TreeFrogUnicode.ttf` when a language needs it. **The translations
 are drafts written with Claude and have not been reviewed by native speakers**; each file says so. A fix is
-a change to a plain text file in `lang/`, with no rebuild: see [docs/TRANSLATING.md](docs/TRANSLATING.md).
+a change to a plain text file in `lang/`, with no rebuild: see [docs/TRANSLATING.md](docs/TRANSLATING.md). If you read one of these languages, a review would help: see [docs/TRANSLATION-REVIEW-NOTES.md](docs/TRANSLATION-REVIEW-NOTES.md).
 
 ## Files it writes
 

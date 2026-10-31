@@ -1,0 +1,43 @@
+name: Translation review
+description: You read one of the translations; tell us what is right and what to change.
+title: "[Translation review]: "
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reading a translation. The files are `lang/<locale>.json`; English is `lang/en_US.json`.
+        See `docs/TRANSLATION-REVIEW-NOTES.md` for what has been checked and what we are unsure about.
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options: [German (de_DE), Spanish (es_ES), French (fr_FR), Italian (it_IT), Polish (pl_PL), Portuguese - Brazil (pt_BR), Russian (ru_RU), Turkish (tr_TR), Japanese (ja_JP), Chinese - Simplified (zh_CN), Another language]
+    validations:
+      required: true
+  - type: dropdown
+    id: relation
+    attributes:
+      label: Your relation to the language
+      options: [Native speaker, Fluent, Learner]
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: What you read
+      options:
+        - label: The whole file
+        - label: The screens, on a device
+        - label: Only some strings (say which below)
+  - type: textarea
+    id: corrections
+    attributes:
+      label: Corrections, or "all fine"
+      description: The key (for example `tab.profiles`), what it says now, and what it should say.
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name to credit in the file (optional)
